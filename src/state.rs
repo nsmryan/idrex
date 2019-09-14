@@ -112,6 +112,7 @@ impl EventHandler for MainState {
 
         // character to use in character display
         let mut char_to_display: Option<char> = None;
+        let mouse_pos = ggez::input::mouse::position();
 
         // draw map display
         {
@@ -139,6 +140,14 @@ impl EventHandler for MainState {
                         //if cell.ch != ' ' as u32 {
                             ggez::graphics::draw(ctx, &self.font_image, params)?;
                         //}
+
+                        // TODO unfinished- need variables for ch_*
+                        if map_disp.contains(mouse_pos) &&
+                           (mouse_pos.x >= pos.x && mouse_pos.x < (pos.x + ch_width)) &&
+                           (mouse_pos.y >= pos.y && mouse_pos.y < (pos.y + ch_height)) {
+                                char_to_display = cells.ch;
+                            }
+                        }
                     }
                 }
             }
