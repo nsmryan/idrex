@@ -82,53 +82,86 @@ impl EventHandler for MainState {
         let background = ggez::graphics::Color::new(255.0 / 255.0, 140.0 / 255.0, 0.0, 1.0);
         ggez::graphics::clear(ctx, background);
 
-        let mut width = 0;
 
-        // Render game stuff
-        for layer in self.tile_image.layers.iter() {
-            //dbg!(layer.width, layer.height);
-            for x in 0..layer.width {
-                width = std::cmp::max(width, layer.width);
+        let screen_coords = ggez::graphics::screen_coordinates(ctx);
 
-                for y in 0..layer.height {
-                    let cell = layer.cells[y * layer.width + x];
+        let mut map_disp = screen_coords;
+        map_disp.scale(0.5, 1.0);
+        let map_disp_width = map_disp.w;
+        let map_disp_height = map_disp.h;
+        let map_width = self.tile_image.layers[0].width as f32 * 16.0;
+        let map_height = self.tile_image.layers[0].height as f32 * 16.0;
+        let map_scaler;
+        if (map_disp.w / map_width) <= map_disp.h {
+            map_scaler = map_disp.w / map_width;
+        } else {
+            map_scaler = map_disp.h / map_height;
+        }
+        map_disp.scale(map_scaler, map_scaler);
+        map_disp.move_to([(map_disp_width - map_width * map_scaler) / 2.0,
+                          (map_disp_height -  map_height * map_scaler) / 2.0,]);
 
-                    let text = Text::new(format!("{}", cell.ch));
+        let mut font_disp = screen_coords;
+        font_disp.scale(0.5, 0.5);
+        font_disp.move_to([screen_coords.w / 2.0, 0.0]);
+                              
+        let mut char_disp = screen_coords;
+        char_disp.scale(0.5, 0.5);
+        char_disp.move_to([screen_coords.w / 2.0, screen_coords.h / 2.0]);
 
-                    let pos = Point2::from([x as f32 * 16.0 * self.params.scale,
-                                            y as f32 * 16.0 * self.params.scale]);
+        // draw map display
+        {
+            let mut width = 0;
 
-                    let chr_x = cell.ch % 16;
-                    let chr_y = cell.ch / 16;
-                    let src_rect =
-                        Rect::new(chr_x as f32 / 16.0,
-                                  chr_y as f32 / 16.0,
-                                  1.0 / 16.0,
-                                  1.0 / 16.0);
-                    //dbg!(src_rect);
-                    //dbg!(pos);
-                    //dbg!(cell.ch);
-                    let scaling = Vector2::from_slice(&[self.params.scale, self.params.scale]);
-                    let params =
-                        DrawParam::default().color(WHITE)
-                                            .dest(pos)
-                                            .src(src_rect)
-                                            .scale(scaling);
+            // Render game stuff
+            for layer in self.tile_image.layers.iter() {
+                for x in 0..layer.width {
+                    width = std::cmp::max(width, layer.width);
 
-                    //if cell.ch != ' ' as u32 {
-                        ggez::graphics::draw(ctx, &self.font_image, params);
-                    //}
+                    for y in 0..layer.height {
+                        let cell = layer.cells[y * layer.width + x];
+
+                        // TODO try creating text table in case this improve performance
+                        let text = Text::new(format!("{}", cell.ch));
+
+                        let pos = Point2::from([x as f32 * 16.0 * self.params.scale,
+                                                y as f32 * 16.0 * self.params.scale]);
+
+                        let chr_x = cell.ch % 16;
+                        let chr_y = cell.ch / 16;
+                        let src_rect =
+                            Rect::new(chr_x as f32 / 16.0,
+                                      chr_y as f32 / 16.0,
+                                      1.0 / 16.0,
+                                      1.0 / 16.0);
+                        let params =
+                            DrawParam::default().color(WHITE)
+                                                .dest([map_disp.x + x as f32 * map_scaler * 16.0,
+                                                       map_disp.y + y as f32 * map_scaler * 16.0])
+                                                .src(src_rect)
+                                                .scale([map_scaler, map_scaler]);
+
+                        //if cell.ch != ' ' as u32 {
+                            ggez::graphics::draw(ctx, &self.font_image, params)?;
+                        //}
+                    }
                 }
             }
         }
 
-        let x_pos = width as f32 * self.params.scale * 16.0;
-        let scaling = Vector2::from_slice(&[2.0, 2.0]);
-        let params =
-            DrawParam::default().dest(Point2::from([x_pos, 0.0]))
-                                .scale(scaling);
-        self.font_image.draw(ctx, params);
+        // draw font display
+        { 
+            let params =
+                DrawParam::default().dest([font_disp.x, font_disp.y])
+                                    // TODO the 256.0 should depend on the font image dimensions
+                                    .scale([font_disp.w / 256.0, font_disp.h / 256.0]);
+            self.font_image.draw(ctx, params)?;
+        }
 
+        // draw character display
+        {
+            // TODO check if
+        }
 
         // Render game ui
         {
