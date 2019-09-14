@@ -1,0 +1,16 @@
+[package]
+name = "indrex"
+version = "0.1.0"
+authors = ["nsmryan <nsmryan@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+ggez = "0.5.0"
+
+gfx_core = "0.9"
+gfx_device_gl = "0.16"
+
+imgui = "0.1.0"
+imgui-gfx-renderer = "0.1.0"
+
+rexpaint = "*"
