@@ -83,6 +83,7 @@ impl EventHandler for MainState {
         ggez::graphics::clear(ctx, background);
 
 
+        /* Calculate dimensions of each component of the screen */
         let screen_coords = ggez::graphics::screen_coordinates(ctx);
 
         let mut map_disp = screen_coords;
@@ -109,29 +110,23 @@ impl EventHandler for MainState {
         char_disp.scale(0.5, 0.5);
         char_disp.move_to([screen_coords.w / 2.0, screen_coords.h / 2.0]);
 
+        // character to use in character display
+        let mut char_to_display: Option<char> = None;
+
         // draw map display
         {
-            let mut width = 0;
-
             // Render game stuff
             for layer in self.tile_image.layers.iter() {
                 for x in 0..layer.width {
-                    width = std::cmp::max(width, layer.width);
-
                     for y in 0..layer.height {
                         let cell = layer.cells[y * layer.width + x];
-
-                        // TODO try creating text table in case this improve performance
-                        let text = Text::new(format!("{}", cell.ch));
 
                         let pos = Point2::from([x as f32 * 16.0 * self.params.scale,
                                                 y as f32 * 16.0 * self.params.scale]);
 
-                        let chr_x = cell.ch % 16;
-                        let chr_y = cell.ch / 16;
                         let src_rect =
-                            Rect::new(chr_x as f32 / 16.0,
-                                      chr_y as f32 / 16.0,
+                            Rect::new((cell.ch % 16) as f32 / 16.0,
+                                      (cell.ch / 16) as f32 / 16.0,
                                       1.0 / 16.0,
                                       1.0 / 16.0);
                         let params =
@@ -156,11 +151,14 @@ impl EventHandler for MainState {
                                     // TODO the 256.0 should depend on the font image dimensions
                                     .scale([font_disp.w / 256.0, font_disp.h / 256.0]);
             self.font_image.draw(ctx, params)?;
+
+            // TODO highlight character under cursor, or character in map under cursor
         }
 
         // draw character display
         {
-            // TODO check if
+            // TODO display character in font or map
+            // TODO display index in decimal and hex, and the ascii character if any
         }
 
         // Render game ui
@@ -172,17 +170,20 @@ impl EventHandler for MainState {
         Ok(())
     }
 
-    fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
+    fn mouse_motion_event(&mut self,
+                          _ctx: &mut Context,
+                          x: f32,
+                          y: f32,
+                          _dx: f32,
+                          _dy: f32) {
         self.gui.update_mouse_pos(x, y);
     }
 
-    fn mouse_button_down_event(
-        &mut self,
-        _ctx: &mut Context,
-        button: MouseButton,
-        _x: f32,
-        _y: f32,
-    ) {
+    fn mouse_button_down_event(&mut self,
+                               _ctx: &mut Context,
+                               button: MouseButton,
+                               _x: f32,
+                               _y: f32) {
         self.gui.update_mouse_down((
             button == MouseButton::Left,
             button == MouseButton::Right,
@@ -190,23 +191,19 @@ impl EventHandler for MainState {
         ));
     }
 
-    fn mouse_button_up_event(
-        &mut self,
-        _ctx: &mut Context,
-        _button: MouseButton,
-        _x: f32,
-        _y: f32,
-    ) {
+    fn mouse_button_up_event(&mut self,
+                             _ctx: &mut Context,
+                             _button: MouseButton,
+                             _x: f32,
+                             _y: f32) {
         self.gui.update_mouse_down((false, false, false));
     }
 
-    fn key_down_event(
-        &mut self,
-        _ctx: &mut Context,
-        keycode: KeyCode,
-        keymods: KeyMods,
-        _repeat: bool,
-    ) {
+    fn key_down_event(&mut self,
+                      _ctx: &mut Context,
+                      keycode: KeyCode,
+                      keymods: KeyMods,
+                      _repeat: bool) {
         match keycode {
             KeyCode::P => {
                 //self.gui.open_popup();
