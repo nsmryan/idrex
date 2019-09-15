@@ -130,10 +130,12 @@ impl EventHandler for MainState {
                                       (cell.ch / 16) as f32 / 16.0,
                                       1.0 / 16.0,
                                       1.0 / 16.0);
+
+                        let pos = Point2::from([map_disp.x + x as f32 * map_scaler * 16.0,
+                                                map_disp.y + y as f32 * map_scaler * 16.0]
                         let params =
                             DrawParam::default().color(WHITE)
-                                                .dest([map_disp.x + x as f32 * map_scaler * 16.0,
-                                                       map_disp.y + y as f32 * map_scaler * 16.0])
+                                                .dest(pos)
                                                 .src(src_rect)
                                                 .scale([map_scaler, map_scaler]);
 
