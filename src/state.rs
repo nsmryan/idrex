@@ -1,9 +1,11 @@
-use ggez::event::{self, EventHandler, KeyCode, KeyMods, MouseButton};
+use std::iter::*;
+use std::slice::Iter;
+
+use ggez::event::{EventHandler, KeyCode, KeyMods, MouseButton};
 use ggez::graphics::*;
 use ggez::{Context, GameResult};
 
 use mint::Point2;
-use mint::Vector2;
 
 use rexpaint::*;
 
@@ -120,9 +122,13 @@ impl MainState {
     }
 }
 
-pub fn map_pos_to_screen(map_disp: Rect, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
-    let ch_width = map_scaler * 16.0;
-    let ch_height = map_scaler * 16.0;
+pub fn map_ch_dims(map_disp: Rect, map: &XpLayer) -> (f32, f32) {
+    return ((map_disp.w / map.width as f32),
+            (map_disp.h / map.height as f32));
+}
+
+pub fn map_pos_to_screen(map_disp: Rect, map: &XpLayer, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
+    let (ch_width, ch_height) = map_ch_dims(map_disp, map);
 
     let pos = Point2::from([map_disp.x + x as f32 * ch_width,
                             map_disp.y + y as f32 * ch_height]);
@@ -171,7 +177,7 @@ impl EventHandler for MainState {
         let map_scaler = calc_map_scaler(self.map_disp, map_width, map_height);
         self.map_disp.scale(map_scaler, map_scaler);
         self.map_disp.move_to([(map_disp_width - map_width * map_scaler) / 2.0,
-                               (map_disp_height -  map_height * map_scaler) / 2.0,]);
+                               (map_disp_height - map_height * map_scaler) / 2.0]);
 
         self.font_disp = screen_coords;
         self.font_disp.scale(0.5, 0.5);
@@ -197,24 +203,25 @@ impl EventHandler for MainState {
         // Map Info
         self.info.map_info = None;
 
-        for layer in self.tile_image.layers.iter() {
-            let tile_iter =
-                layer.cells.iter().enumerate().map(
-                    |(index, cell)| (index % layer.width, index / layer.width, cell)
-                 );
 
-            for (x, y, cell) in tile_iter {
-                let ch = std::char::from_u32(cell.ch).unwrap();
-                let pos = map_pos_to_screen(self.map_disp, x, y, map_scaler);
+        for layer in self.tile_image.layers.iter() {
+            let (ch_width, ch_height) = map_ch_dims(self.map_disp, layer);
+            let cell_iter = layer.cells.iter()
+                                 .enumerate()
+                                 .map(|(index, cell)|
+                                        (index % layer.width,
+                                         index / layer.width,
+                                         std::char::from_u32(cell.ch).unwrap())
+                                      );
+            for (x, y, ch) in cell_iter {
+                let pos = map_pos_to_screen(self.map_disp, layer, x, y, map_scaler);
 
                 if (mouse_pos.x >= pos.x && mouse_pos.x < (pos.x + ch_width)) &&
                    (mouse_pos.y >= pos.y && mouse_pos.y < (pos.y + ch_height)) {
-                        self.info.map_info =
-                            Some(MapInfo::new(ch, x, y));
+                    self.info.map_info =
+                        Some(MapInfo::new(ch, x, y));
 
-                    if self.info.font_info.is_none() {
-                        self.info.font_info = Some(FontInfo::new(x as i32, y as i32, ch));
-                    }
+                    self.info.font_info = Some(FontInfo::new(x as i32, y as i32, ch));
                 }
             }
         }
@@ -224,13 +231,13 @@ impl EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         let background = ggez::graphics::Color::new(255.0 / 255.0, 140.0 / 255.0, 0.0, 1.0);
+        let highlight_color = Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0);
+
         ggez::graphics::clear(ctx, background);
 
         let map_width = self.tile_image.layers[0].width as f32 * 16.0;
         let map_height = self.tile_image.layers[0].height as f32 * 16.0;
         let map_scaler = calc_map_scaler(self.map_disp, map_width, map_height);
-
-        dbg!(map_scaler);
 
         // character to use in character display
         let mouse_pos = ggez::input::mouse::position(ctx);
@@ -250,21 +257,21 @@ impl EventHandler for MainState {
                 let y = (((mouse_pos.y - self.font_disp.y) as f32 / self.font_disp.h as f32) * 16.0) as i32;
                 let pos = Point2::from([self.font_disp.x + x as f32 * ch_width - 1.0,
                                         self.font_disp.y + y as f32 * ch_height - 1.0]);
-                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0))?;
+                hightlight_square(ctx, pos, ch_width, ch_height, highlight_color)?;
             }
         }
 
         // draw map display
         {
+            dbg!(map_scaler);
             // Render game stuff
-            let ch_width = map_scaler * 16.0;
-            let ch_height = map_scaler * 16.0;
-
             for layer in self.tile_image.layers.iter() {
                 let tile_iter =
                     layer.cells.iter().enumerate().map(
                         |(index, cell)| (index % layer.width, index / layer.width, cell)
                      );
+
+                let (ch_width, ch_height) = map_ch_dims(self.map_disp, layer);
 
                 for (x, y, cell) in tile_iter {
                     let ch = std::char::from_u32(cell.ch).unwrap();
@@ -275,13 +282,13 @@ impl EventHandler for MainState {
                                   1.0 / 16.0,
                                   1.0 / 16.0);
 
-                    let pos = map_pos_to_screen(self.map_disp, x, y, map_scaler);
+                    let pos = map_pos_to_screen(self.map_disp, layer, x, y, map_scaler);
 
                     let params =
                         DrawParam::default().color(WHITE)
                                             .dest(pos)
-                                            .src(src_rect)
-                                            .scale([map_scaler, map_scaler]);
+                                            .src(src_rect);
+                                            // .scale([map_scaler, map_scaler]);
 
                     ggez::graphics::draw(ctx, &self.font_image, params)?;
                 }
@@ -289,6 +296,8 @@ impl EventHandler for MainState {
 
             if let Some(font_info) = self.info.font_info {
                 for layer in self.tile_image.layers.iter() {
+                    let (ch_width, ch_height) = map_ch_dims(self.map_disp, layer);
+
                     for x in 0..layer.width {
                         for y in 0..layer.height {
                             let cell = layer.cells[y * layer.width + x];
@@ -296,7 +305,7 @@ impl EventHandler for MainState {
                             let pos = Point2::from([self.map_disp.x + x as f32 * ch_width,
                                                     self.map_disp.y + y as f32 * ch_height]);
                             if ch == font_info.ch {
-                                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0))?;
+                                hightlight_square(ctx, pos, ch_width, ch_height, highlight_color)?;
                             }
                         }
                     }
@@ -308,7 +317,7 @@ impl EventHandler for MainState {
                 let y = font_info.ch as usize / 16;
                 let pos = Point2::from([self.font_disp.x + x as f32 * ch_width - 1.0,
                                         self.font_disp.y + y as f32 * ch_height - 1.0]);
-                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0))?;
+                hightlight_square(ctx, pos, ch_width, ch_height, highlight_color)?;
             }
         }
 
