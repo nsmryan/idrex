@@ -22,17 +22,58 @@ impl Default for Params {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct FontInfo {
-    x: i32,
-    y: i32,
-    ch: char,
+    pub x: i32,
+    pub y: i32,
+    pub ch: char,
 }
 
+impl Default for FontInfo {
+    fn default() -> FontInfo {
+        FontInfo {
+            x: 0,
+            y: 0,
+            ch: ' ',
+        }
+    }
+}
+
+impl FontInfo {
+    pub fn new(x: i32, y: i32, ch: char) -> FontInfo {
+        FontInfo {
+            x,
+            y,
+            ch,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct MapInfo {
-    x: i32,
-    y: i32,
-    ch: char,
-    // image? drawparams?
+    pub x: usize,
+    pub y: usize,
+    pub ch: char,
+}
+
+impl Default for MapInfo {
+    fn default() -> MapInfo {
+        MapInfo {
+            x: 0,
+            y: 0,
+            ch: ' ',
+        }
+    }
+}
+
+impl MapInfo {
+    pub fn new(ch: char, x: usize, y: usize) -> MapInfo {
+        MapInfo {
+            ch,
+            x,
+            y,
+        }
+    }
 }
 
 pub struct Info {
@@ -73,6 +114,30 @@ impl MainState {
     }
 }
 
+pub fn map_pos_to_screen(map_disp: Rect, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
+    let ch_width = map_scaler * 16.0;
+    let ch_height = map_scaler * 16.0;
+
+    let pos = Point2::from([map_disp.x + x as f32 * ch_width,
+                            map_disp.y + y as f32 * ch_height]);
+
+    return pos;
+}
+
+pub fn hightlight_square(ctx: &mut Context, pos: Point2<f32>, width: f32, height: f32, color: Color) -> GameResult<()> {
+    let highlight =
+        Mesh::new_rectangle(ctx,
+                            DrawMode::Stroke(StrokeOptions::default()),
+                            Rect::new(pos.x - 1.0,
+                                      pos.y - 1.0,
+                                      width + 2.0,
+                                      height + 2.0),
+                            color)?;
+    highlight.draw(ctx, DrawParam::default())?;
+
+    Ok(())
+}
+
 impl EventHandler for MainState {
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
         Ok(())
@@ -85,6 +150,9 @@ impl EventHandler for MainState {
 
         /* Calculate dimensions of each component of the screen */
         let screen_coords = ggez::graphics::screen_coordinates(ctx);
+
+        self.info.map_info = None;
+        self.info.font_info = None;
 
         let mut map_disp = screen_coords;
         map_disp.scale(0.5, 1.0);
@@ -111,49 +179,7 @@ impl EventHandler for MainState {
         char_disp.move_to([screen_coords.w / 2.0, screen_coords.h / 2.0]);
 
         // character to use in character display
-        let mut char_to_display: Option<char> = None;
-        let mouse_pos = ggez::input::mouse::position();
-
-        // draw map display
-        {
-            // Render game stuff
-            for layer in self.tile_image.layers.iter() {
-                for x in 0..layer.width {
-                    for y in 0..layer.height {
-                        let cell = layer.cells[y * layer.width + x];
-
-                        let pos = Point2::from([x as f32 * 16.0 * self.params.scale,
-                                                y as f32 * 16.0 * self.params.scale]);
-
-                        let src_rect =
-                            Rect::new((cell.ch % 16) as f32 / 16.0,
-                                      (cell.ch / 16) as f32 / 16.0,
-                                      1.0 / 16.0,
-                                      1.0 / 16.0);
-
-                        let pos = Point2::from([map_disp.x + x as f32 * map_scaler * 16.0,
-                                                map_disp.y + y as f32 * map_scaler * 16.0]
-                        let params =
-                            DrawParam::default().color(WHITE)
-                                                .dest(pos)
-                                                .src(src_rect)
-                                                .scale([map_scaler, map_scaler]);
-
-                        //if cell.ch != ' ' as u32 {
-                            ggez::graphics::draw(ctx, &self.font_image, params)?;
-                        //}
-
-                        // TODO unfinished- need variables for ch_*
-                        if map_disp.contains(mouse_pos) &&
-                           (mouse_pos.x >= pos.x && mouse_pos.x < (pos.x + ch_width)) &&
-                           (mouse_pos.y >= pos.y && mouse_pos.y < (pos.y + ch_height)) {
-                                char_to_display = cells.ch;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let mouse_pos = ggez::input::mouse::position(ctx);
 
         // draw font display
         { 
@@ -163,7 +189,77 @@ impl EventHandler for MainState {
                                     .scale([font_disp.w / 256.0, font_disp.h / 256.0]);
             self.font_image.draw(ctx, params)?;
 
-            // TODO highlight character under cursor, or character in map under cursor
+            let ch_width = font_disp.w as f32 / 16.0;
+            let ch_height = font_disp.h as f32 / 16.0;
+            if font_disp.contains(mouse_pos) {
+                // get character under cursor
+                let x = (((mouse_pos.x - font_disp.x) as f32 / font_disp.w as f32) * 16.0) as i32;
+                let y = (((mouse_pos.y - font_disp.y) as f32 / font_disp.h as f32) * 16.0) as i32;
+                let ch = std::char::from_u32((x + y * 16) as u32).unwrap();
+                self.info.font_info = Some(FontInfo::new(x, y, ch));
+
+                let pos = Point2::from([font_disp.x + x as f32 * ch_width - 1.0,
+                                        font_disp.y + y as f32 * ch_height - 1.0]);
+                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0))?;
+            }
+        }
+
+        // draw map display
+        {
+            // Render game stuff
+            let ch_width = map_scaler * 16.0;
+            let ch_height = map_scaler * 16.0;
+
+            for layer in self.tile_image.layers.iter() {
+                for x in 0..layer.width {
+                    for y in 0..layer.height {
+                        let cell = layer.cells[y * layer.width + x];
+                        let ch = std::char::from_u32(cell.ch).unwrap();
+
+                        let src_rect =
+                            Rect::new((cell.ch % 16) as f32 / 16.0,
+                                      (cell.ch / 16) as f32 / 16.0,
+                                      1.0 / 16.0,
+                                      1.0 / 16.0);
+
+                        let pos = map_pos_to_screen(map_disp, x, y, map_scaler);
+
+                        let params =
+                            DrawParam::default().color(WHITE)
+                                                .dest(pos)
+                                                .src(src_rect)
+                                                .scale([map_scaler, map_scaler]);
+
+                        ggez::graphics::draw(ctx, &self.font_image, params)?;
+
+                        if (mouse_pos.x >= pos.x && mouse_pos.x < (pos.x + ch_width)) &&
+                           (mouse_pos.y >= pos.y && mouse_pos.y < (pos.y + ch_height)) {
+                                self.info.map_info =
+                                    Some(MapInfo::new(ch, x, y));
+
+                            if self.info.font_info.is_none() {
+                                self.info.font_info = Some(FontInfo::new(x as i32, y as i32, ch));
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(font_info) = self.info.font_info {
+                for layer in self.tile_image.layers.iter() {
+                    for x in 0..layer.width {
+                        for y in 0..layer.height {
+                            let cell = layer.cells[y * layer.width + x];
+                            let ch = std::char::from_u32(cell.ch).unwrap();
+                            let pos = Point2::from([map_disp.x + x as f32 * ch_width,
+                                                    map_disp.y + y as f32 * ch_height]);
+                            if ch == font_info.ch {
+                                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0));
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // draw character display
@@ -174,7 +270,7 @@ impl EventHandler for MainState {
 
         // Render game ui
         {
-            self.gui.render(ctx, &mut self.params);
+            self.gui.render(ctx, &mut self.params, &self.info);
         }
 
         ggez::graphics::present(ctx)?;

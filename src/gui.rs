@@ -10,7 +10,7 @@ use imgui_gfx_renderer::*;
 
 use std::time::Instant;
 
-use crate::state::Params;
+use crate::state::{Params, Info, MapInfo, FontInfo};
 
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
@@ -66,7 +66,7 @@ impl Gui {
     }
   }
 
-  pub fn render(&mut self, ctx: &mut Context, params: &mut Params) {
+  pub fn render(&mut self, ctx: &mut Context, params: &mut Params, info: &Info) {
     // Update mouse
     self.update_mouse();
 
@@ -90,12 +90,18 @@ impl Gui {
         .size([w, 100.0], imgui::Condition::FirstUseEver)
         .position([0.0, h - 100.0], imgui::Condition::FirstUseEver)
         .build(|| {
-          ui.drag_float(im_str!("Scale"), &mut params.scale)
-              .speed(0.01)
-              .build();
+          if let Some(font_info) = info.font_info {
+              let ch_index = font_info.x + font_info.y * 16;
+              ui.text(format!("Font pos ({:2}, {:2}) {:3} (0x{:X}), char = {}", font_info.x, font_info.y, ch_index, ch_index, font_info.ch));
+          } else {
+              ui.new_line();
+          }
 
-          let mouse_pos = ui.io().mouse_pos;
-          ui.text(format!("mouse pos ({}, {})", mouse_pos[0], mouse_pos[1]));
+          if let Some(map_info) = info.map_info {
+              ui.text(format!("Map pos ({}, {})", map_info.x, map_info.y));
+          } else {
+              ui.new_line();
+          }
         });
     }
 
