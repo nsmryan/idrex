@@ -19,7 +19,7 @@ use crate::state::MainState;
 
 pub fn main() -> ggez::GameResult {
     let cb = ggez::ContextBuilder::new("Font Indexer", "Font Indexing Tool");
-    let cb = cb.window_mode(WindowMode::default().dimensions(1200.0, 900.0)
+    let cb = cb.window_mode(WindowMode::default().dimensions(1200.0, 800.0)
                                                  .resizable(true));
     let (ref mut ctx, event_loop) = &mut cb.build()?;
 

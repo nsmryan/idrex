@@ -254,11 +254,19 @@ impl EventHandler for MainState {
                             let pos = Point2::from([map_disp.x + x as f32 * ch_width,
                                                     map_disp.y + y as f32 * ch_height]);
                             if ch == font_info.ch {
-                                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0));
+                                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0))?;
                             }
                         }
                     }
                 }
+
+                let ch_width = font_disp.w as f32 / 16.0;
+                let ch_height = font_disp.h as f32 / 16.0;
+                let x = font_info.ch as usize % 16;
+                let y = font_info.ch as usize / 16;
+                let pos = Point2::from([font_disp.x + x as f32 * ch_width - 1.0,
+                                        font_disp.y + y as f32 * ch_height - 1.0]);
+                hightlight_square(ctx, pos, ch_width, ch_height, Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0))?;
             }
         }
 
