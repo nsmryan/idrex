@@ -7,13 +7,12 @@ mod gui;
 use std::fs::File;
 use std::io::BufReader;
 
-use ggez::event::{self, EventHandler, KeyCode, KeyMods, MouseButton};
+use ggez::event;
 use ggez::graphics::*;
-use ggez::conf::{WindowMode, NumSamples, WindowSetup};
+use ggez::conf::{WindowMode, WindowSetup};
 
 use rexpaint::*;
 
-use crate::gui::Gui;
 use crate::state::MainState;
 
 

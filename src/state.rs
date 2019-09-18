@@ -123,11 +123,6 @@ impl MainState {
     }
 }
 
-pub fn map_ch_dims(map_disp: Rect, map: &XpLayer) -> (f32, f32) {
-    return ((map_disp.w / map.width as f32),
-            (map_disp.h / map.height as f32));
-}
-
 pub fn map_pos_to_screen(map_disp: Rect, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
     let pos = Point2::from([map_disp.y + y as f32 * map_scaler,
                             map_disp.x + x as f32 * map_scaler]);
@@ -183,8 +178,8 @@ pub fn calc_map_coords(screen_coords: Rect, width_cells: usize, height_cells: us
     let used_map_width = map_scaler * width_cells as f32;
     let used_map_height = map_scaler * height_cells as f32;
 
-    let x_margin = full_map_disp.w - used_map_width;
-    let y_margin = full_map_disp.h - used_map_height;
+    // let x_margin = full_map_disp.w - used_map_width;
+    // let y_margin = full_map_disp.h - used_map_height;
 
     map_disp.scale(used_map_width / full_map_disp.w, used_map_height / full_map_disp.h);
 
@@ -219,8 +214,6 @@ impl EventHandler for MainState {
         // Font Info
         self.info.font_info = None;
 
-        let ch_width = self.font_disp.w as f32 / ch_pixels;
-        let ch_height = self.font_disp.h as f32 / ch_pixels;
         if self.font_disp.contains(mouse_pos) {
             // get character under cursor
             let x = (((mouse_pos.x - self.font_disp.x) as f32 / self.font_disp.w as f32) * ch_pixels) as i32;
@@ -262,9 +255,6 @@ impl EventHandler for MainState {
 
         ggez::graphics::clear(ctx, background);
 
-        let map_width = self.tile_image.layers[0].width;
-        let map_height = self.tile_image.layers[0].height;
-
         // character to use in character display
         let mouse_pos = ggez::input::mouse::position(ctx);
 
@@ -278,7 +268,7 @@ impl EventHandler for MainState {
                                     .scale([self.font_disp.w / image_len, self.font_disp.h / image_len]);
             self.font_image.draw(ctx, params)?;
 
-            if let Some(font_info) = self.info.font_info {
+            if let Some(_font_info) = self.info.font_info {
                 let ch_width = self.font_disp.w as f32 / ch_pixels;
                 let ch_height = self.font_disp.h as f32 / ch_pixels;
                 let x = (((mouse_pos.x - self.font_disp.x) as f32 / self.font_disp.w as f32) * ch_pixels) as i32;
@@ -299,8 +289,6 @@ impl EventHandler for MainState {
                      );
 
                 for (x, y, cell) in tile_iter {
-                    let ch = std::char::from_u32(cell.ch).unwrap();
-
                     let src_rect =
                         Rect::new((cell.ch % 16) as f32 / ch_pixels,
                                   (cell.ch / 16) as f32 / ch_pixels,
