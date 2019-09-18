@@ -322,8 +322,6 @@ impl EventHandler for MainState {
             // Draw highlight on font square
             if let Some(font_info) = self.info.font_info {
                 for layer in self.tile_image.layers.iter() {
-                    let (ch_width, ch_height) = map_ch_dims(self.map_disp, layer);
-
                     for x in 0..layer.width {
                         for y in 0..layer.height {
                             let cell = layer.cells[y * layer.width + x];
@@ -413,7 +411,7 @@ impl EventHandler for MainState {
     fn key_down_event(&mut self,
                       _ctx: &mut Context,
                       keycode: KeyCode,
-                      keymods: KeyMods,
+                      _keymods: KeyMods,
                       _repeat: bool) {
         match keycode {
             KeyCode::P => {

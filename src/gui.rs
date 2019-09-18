@@ -68,7 +68,7 @@ impl Gui {
     }
   }
 
-  pub fn render(&mut self, ctx: &mut Context, params: &mut Params, info: &Info) {
+  pub fn render(&mut self, ctx: &mut Context, _params: &mut Params, info: &Info) {
     // Update mouse
     self.update_mouse();
 
