@@ -101,6 +101,7 @@ pub struct MainState {
     pub map_disp: Rect,
     pub font_disp: Rect,
     pub char_disp: Rect,
+    pub map_scaler: f32,
 }
 
 impl MainState {
@@ -117,6 +118,7 @@ impl MainState {
             map_disp: Rect::default(),
             font_disp: Rect::default(),
             char_disp: Rect::default(),
+            map_scaler: 0.0,
         };
         Ok(s)
     }
@@ -127,13 +129,36 @@ pub fn map_ch_dims(map_disp: Rect, map: &XpLayer) -> (f32, f32) {
             (map_disp.h / map.height as f32));
 }
 
-pub fn map_pos_to_screen(map_disp: Rect, map: &XpLayer, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
-    let (ch_width, ch_height) = map_ch_dims(map_disp, map);
-
-    let pos = Point2::from([map_disp.x + x as f32 * ch_width,
-                            map_disp.y + y as f32 * ch_height]);
+pub fn map_pos_to_screen(map_disp: Rect, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
+    let pos = Point2::from([map_disp.x + x as f32 * map_scaler,
+                            map_disp.y + y as f32 * map_scaler]);
 
     return pos;
+}
+
+pub fn calc_map_scaler(map_disp: Rect, map_width: usize, map_height: usize) -> f32 {
+    let map_scaler;
+
+    let width_scale = map_disp.w / map_width as f32;
+    let height_scale = map_disp.h / map_height as f32;
+
+    let width_scale_error = map_disp.h - width_scale * map_height as f32;
+    let height_scale_error = map_disp.w - height_scale * map_width as f32;
+
+    println!("");
+    dbg!(map_disp.w, map_disp.h);
+    dbg!(map_width, map_height);
+    dbg!(width_scale, height_scale);
+    dbg!(width_scale_error, height_scale_error);
+    if width_scale_error >= 0.0 && width_scale_error < height_scale_error {
+        map_scaler = width_scale;
+    } else if height_scale_error < 0.0 {
+        map_scaler = width_scale;
+    } else {
+        map_scaler = height_scale;
+    }
+
+    return map_scaler;
 }
 
 pub fn hightlight_square(ctx: &mut Context, pos: Point2<f32>, width: f32, height: f32, color: Color) -> GameResult<()> {
@@ -150,15 +175,28 @@ pub fn hightlight_square(ctx: &mut Context, pos: Point2<f32>, width: f32, height
     Ok(())
 }
 
-pub fn calc_map_scaler(map_disp: Rect, map_width: f32, map_height: f32) -> f32 {
-    let map_scaler;
-    if (map_disp.w / map_width) <= map_disp.h {
-        map_scaler = map_disp.w / map_width;
-    } else {
-        map_scaler = map_disp.h / map_height;
-    }
+pub fn calc_map_coords(screen_coords: Rect, width_cells: usize, height_cells: usize) -> (Rect, f32) {
+    let mut map_disp = screen_coords;
 
-    return map_scaler;
+    // split screen into two section, the right section being the map
+    map_disp.scale(0.5, 1.0);
+
+    // save the current dimensions as the full available area
+    let full_map_disp = map_disp;
+
+    let map_scaler = calc_map_scaler(map_disp, width_cells, height_cells);
+
+    let used_map_width = map_scaler * width_cells as f32;
+    let used_map_height = map_scaler * height_cells as f32;
+
+    let x_margin = full_map_disp.w - used_map_width;
+    let y_margin = full_map_disp.h - used_map_height;
+
+    map_disp.scale(used_map_width / full_map_disp.w, used_map_height / full_map_disp.h);
+
+    map_disp.move_to([x_margin / 2.0, y_margin / 2.0]);
+
+    return (map_disp, map_scaler);
 }
 
 impl EventHandler for MainState {
@@ -166,18 +204,13 @@ impl EventHandler for MainState {
         let mouse_pos = ggez::input::mouse::position(ctx);
 
         /* Calculate dimensions of each component of the screen */
-
         let screen_coords = ggez::graphics::screen_coordinates(ctx);
-        self.map_disp = screen_coords;
-        self.map_disp.scale(0.5, 1.0);
-        let map_disp_width = self.map_disp.w;
-        let map_disp_height = self.map_disp.h;
-        let map_width = self.tile_image.layers[0].width as f32 * 16.0;
-        let map_height = self.tile_image.layers[0].height as f32 * 16.0;
-        let map_scaler = calc_map_scaler(self.map_disp, map_width, map_height);
-        self.map_disp.scale(map_scaler, map_scaler);
-        self.map_disp.move_to([(map_disp_width - map_width * map_scaler) / 2.0,
-                               (map_disp_height - map_height * map_scaler) / 2.0]);
+        let pair =
+            calc_map_coords(screen_coords,
+                            self.tile_image.layers[0].width,
+                            self.tile_image.layers[0].height);
+        self.map_disp = pair.0;
+        self.map_scaler = pair.1;
 
         self.font_disp = screen_coords;
         self.font_disp.scale(0.5, 0.5);
@@ -203,9 +236,7 @@ impl EventHandler for MainState {
         // Map Info
         self.info.map_info = None;
 
-
         for layer in self.tile_image.layers.iter() {
-            let (ch_width, ch_height) = map_ch_dims(self.map_disp, layer);
             let cell_iter = layer.cells.iter()
                                  .enumerate()
                                  .map(|(index, cell)|
@@ -214,10 +245,10 @@ impl EventHandler for MainState {
                                          std::char::from_u32(cell.ch).unwrap())
                                       );
             for (x, y, ch) in cell_iter {
-                let pos = map_pos_to_screen(self.map_disp, layer, x, y, map_scaler);
+                let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
 
-                if (mouse_pos.x >= pos.x && mouse_pos.x < (pos.x + ch_width)) &&
-                   (mouse_pos.y >= pos.y && mouse_pos.y < (pos.y + ch_height)) {
+                if (mouse_pos.x >= pos.x && mouse_pos.x < (pos.x + self.map_scaler)) &&
+                   (mouse_pos.y >= pos.y && mouse_pos.y < (pos.y + self.map_scaler)) {
                     self.info.map_info =
                         Some(MapInfo::new(ch, x, y));
 
@@ -235,9 +266,8 @@ impl EventHandler for MainState {
 
         ggez::graphics::clear(ctx, background);
 
-        let map_width = self.tile_image.layers[0].width as f32 * 16.0;
-        let map_height = self.tile_image.layers[0].height as f32 * 16.0;
-        let map_scaler = calc_map_scaler(self.map_disp, map_width, map_height);
+        let map_width = self.tile_image.layers[0].width;
+        let map_height = self.tile_image.layers[0].height;
 
         // character to use in character display
         let mouse_pos = ggez::input::mouse::position(ctx);
@@ -263,15 +293,13 @@ impl EventHandler for MainState {
 
         // draw map display
         {
-            dbg!(map_scaler);
+            dbg!(self.map_scaler);
             // Render game stuff
             for layer in self.tile_image.layers.iter() {
                 let tile_iter =
                     layer.cells.iter().enumerate().map(
                         |(index, cell)| (index % layer.width, index / layer.width, cell)
                      );
-
-                let (ch_width, ch_height) = map_ch_dims(self.map_disp, layer);
 
                 for (x, y, cell) in tile_iter {
                     let ch = std::char::from_u32(cell.ch).unwrap();
@@ -282,18 +310,19 @@ impl EventHandler for MainState {
                                   1.0 / 16.0,
                                   1.0 / 16.0);
 
-                    let pos = map_pos_to_screen(self.map_disp, layer, x, y, map_scaler);
+                    let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
 
                     let params =
                         DrawParam::default().color(WHITE)
                                             .dest(pos)
-                                            .src(src_rect);
-                                            // .scale([map_scaler, map_scaler]);
+                                            .src(src_rect)
+                                            .scale([self.map_scaler / 16.0, self.map_scaler / 16.0]);
 
                     ggez::graphics::draw(ctx, &self.font_image, params)?;
                 }
             }
 
+            // Draw highlight on font square
             if let Some(font_info) = self.info.font_info {
                 for layer in self.tile_image.layers.iter() {
                     let (ch_width, ch_height) = map_ch_dims(self.map_disp, layer);
@@ -305,7 +334,7 @@ impl EventHandler for MainState {
                             let pos = Point2::from([self.map_disp.x + x as f32 * ch_width,
                                                     self.map_disp.y + y as f32 * ch_height]);
                             if ch == font_info.ch {
-                                hightlight_square(ctx, pos, ch_width, ch_height, highlight_color)?;
+                                hightlight_square(ctx, pos, self.map_scaler, self.map_scaler, highlight_color)?;
                             }
                         }
                     }
@@ -325,6 +354,24 @@ impl EventHandler for MainState {
         {
             // TODO display character in font or map
             // TODO display index in decimal and hex, and the ascii character if any
+            if let Some(font_info) = self.info.font_info {
+                let ch = font_info.ch as usize;
+                let src_rect =
+                    Rect::new((ch % 16) as f32 / 16.0,
+                              (ch / 16) as f32 / 16.0,
+                              1.0 / 16.0,
+                              1.0 / 16.0);
+
+                let pos = Point2::from([self.char_disp.x, self.char_disp.y]);
+
+                let params =
+                    DrawParam::default().color(WHITE)
+                                        .dest(pos)
+                                        .src(src_rect)
+                                        .scale([self.char_disp.w / 16.0, self.char_disp.h / 16.0]);
+
+                ggez::graphics::draw(ctx, &self.font_image, params)?;
+            }
         }
 
         // Render game ui

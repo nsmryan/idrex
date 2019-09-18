@@ -9,7 +9,7 @@ use std::io::BufReader;
 
 use ggez::event::{self, EventHandler, KeyCode, KeyMods, MouseButton};
 use ggez::graphics::*;
-use ggez::conf::WindowMode;
+use ggez::conf::{WindowMode, NumSamples, WindowSetup};
 
 use rexpaint::*;
 
