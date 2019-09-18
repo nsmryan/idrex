@@ -1,5 +1,4 @@
 use std::iter::*;
-use std::slice::Iter;
 
 use ggez::event::{EventHandler, KeyCode, KeyMods, MouseButton};
 use ggez::graphics::*;
@@ -9,7 +8,7 @@ use mint::Point2;
 
 use rexpaint::*;
 
-use crate::gui::Gui;
+use crate::gui::{Gui, GUI_HEIGHT};
 
 
 pub struct Params {
@@ -145,11 +144,6 @@ pub fn calc_map_scaler(map_disp: Rect, map_width: usize, map_height: usize) -> f
     let width_scale_error = map_disp.h - width_scale * map_height as f32;
     let height_scale_error = map_disp.w - height_scale * map_width as f32;
 
-    println!("");
-    dbg!(map_disp.w, map_disp.h);
-    dbg!(map_width, map_height);
-    dbg!(width_scale, height_scale);
-    dbg!(width_scale_error, height_scale_error);
     if width_scale_error >= 0.0 && width_scale_error < height_scale_error {
         map_scaler = width_scale;
     } else if height_scale_error < 0.0 {
@@ -204,7 +198,8 @@ impl EventHandler for MainState {
         let mouse_pos = ggez::input::mouse::position(ctx);
 
         /* Calculate dimensions of each component of the screen */
-        let screen_coords = ggez::graphics::screen_coordinates(ctx);
+        let mut screen_coords = ggez::graphics::screen_coordinates(ctx);
+        screen_coords.h -= GUI_HEIGHT as f32;
         let pair =
             calc_map_coords(screen_coords,
                             self.tile_image.layers[0].width,
@@ -261,7 +256,7 @@ impl EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        let background = ggez::graphics::Color::new(255.0 / 255.0, 140.0 / 255.0, 0.0, 1.0);
+        let background = BLACK; // ggez::graphics::Color::new(255.0 / 255.0, 140.0 / 255.0, 0.0, 1.0);
         let highlight_color = Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0);
 
         ggez::graphics::clear(ctx, background);
@@ -293,7 +288,6 @@ impl EventHandler for MainState {
 
         // draw map display
         {
-            dbg!(self.map_scaler);
             // Render game stuff
             for layer in self.tile_image.layers.iter() {
                 let tile_iter =

@@ -21,6 +21,7 @@ pub fn main() -> ggez::GameResult {
     let cb = ggez::ContextBuilder::new("Font Indexer", "Font Indexing Tool");
     let cb = cb.window_mode(WindowMode::default().dimensions(1200.0, 800.0)
                                                  .resizable(true));
+    let cb = cb.window_setup(WindowSetup::default().title("REXPaint Image Viewer"));
     let (ref mut ctx, event_loop) = &mut cb.build()?;
 
     let file = File::open("map.xp").expect("Could not open xp file");

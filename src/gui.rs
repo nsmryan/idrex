@@ -10,8 +10,10 @@ use imgui_gfx_renderer::*;
 
 use std::time::Instant;
 
-use crate::state::{Params, Info, MapInfo, FontInfo};
+use crate::state::{Params, Info};
 
+
+pub const GUI_HEIGHT: usize = 100;
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
@@ -87,8 +89,8 @@ impl Gui {
     {
       // Window
       ui.window(im_str!("Index Selections"))
-        .size([w, 100.0], imgui::Condition::FirstUseEver)
-        .position([0.0, h - 100.0], imgui::Condition::FirstUseEver)
+        .size([w, GUI_HEIGHT as f32], imgui::Condition::FirstUseEver)
+        .position([0.0, h - GUI_HEIGHT as f32], imgui::Condition::FirstUseEver)
         .build(|| {
           if let Some(font_info) = info.font_info {
               let ch_index = font_info.x + font_info.y * 16;
