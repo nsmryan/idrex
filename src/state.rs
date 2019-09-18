@@ -129,8 +129,8 @@ pub fn map_ch_dims(map_disp: Rect, map: &XpLayer) -> (f32, f32) {
 }
 
 pub fn map_pos_to_screen(map_disp: Rect, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
-    let pos = Point2::from([map_disp.x + x as f32 * map_scaler,
-                            map_disp.y + y as f32 * map_scaler]);
+    let pos = Point2::from([map_disp.y + y as f32 * map_scaler,
+                            map_disp.x + x as f32 * map_scaler]);
 
     return pos;
 }
@@ -188,7 +188,7 @@ pub fn calc_map_coords(screen_coords: Rect, width_cells: usize, height_cells: us
 
     map_disp.scale(used_map_width / full_map_disp.w, used_map_height / full_map_disp.h);
 
-    map_disp.move_to([x_margin / 2.0, y_margin / 2.0]);
+    //map_disp.move_to([x_margin / 2.0, y_margin / 2.0]);
 
     return (map_disp, map_scaler);
 }
@@ -196,6 +196,7 @@ pub fn calc_map_coords(screen_coords: Rect, width_cells: usize, height_cells: us
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         let mouse_pos = ggez::input::mouse::position(ctx);
+        let ch_pixels = (self.font_image.width() as f32) / 16.0;
 
         /* Calculate dimensions of each component of the screen */
         let mut screen_coords = ggez::graphics::screen_coordinates(ctx);
@@ -218,12 +219,12 @@ impl EventHandler for MainState {
         // Font Info
         self.info.font_info = None;
 
-        let ch_width = self.font_disp.w as f32 / 16.0;
-        let ch_height = self.font_disp.h as f32 / 16.0;
+        let ch_width = self.font_disp.w as f32 / ch_pixels;
+        let ch_height = self.font_disp.h as f32 / ch_pixels;
         if self.font_disp.contains(mouse_pos) {
             // get character under cursor
-            let x = (((mouse_pos.x - self.font_disp.x) as f32 / self.font_disp.w as f32) * 16.0) as i32;
-            let y = (((mouse_pos.y - self.font_disp.y) as f32 / self.font_disp.h as f32) * 16.0) as i32;
+            let x = (((mouse_pos.x - self.font_disp.x) as f32 / self.font_disp.w as f32) * ch_pixels) as i32;
+            let y = (((mouse_pos.y - self.font_disp.y) as f32 / self.font_disp.h as f32) * ch_pixels) as i32;
             let ch = std::char::from_u32((x + y * 16) as u32).unwrap();
             self.info.font_info = Some(FontInfo::new(x, y, ch));
         }
@@ -267,19 +268,21 @@ impl EventHandler for MainState {
         // character to use in character display
         let mouse_pos = ggez::input::mouse::position(ctx);
 
+        let image_len = self.font_image.width() as f32;
+        let ch_pixels = (self.font_image.width() as f32) / 16.0;
+
         // draw font display
         { 
             let params =
                 DrawParam::default().dest([self.font_disp.x, self.font_disp.y])
-                                    // TODO the 256.0 should depend on the font image dimensions
-                                    .scale([self.font_disp.w / 256.0, self.font_disp.h / 256.0]);
+                                    .scale([self.font_disp.w / image_len, self.font_disp.h / image_len]);
             self.font_image.draw(ctx, params)?;
 
             if let Some(font_info) = self.info.font_info {
-                let ch_width = self.font_disp.w as f32 / 16.0;
-                let ch_height = self.font_disp.h as f32 / 16.0;
-                let x = (((mouse_pos.x - self.font_disp.x) as f32 / self.font_disp.w as f32) * 16.0) as i32;
-                let y = (((mouse_pos.y - self.font_disp.y) as f32 / self.font_disp.h as f32) * 16.0) as i32;
+                let ch_width = self.font_disp.w as f32 / ch_pixels;
+                let ch_height = self.font_disp.h as f32 / ch_pixels;
+                let x = (((mouse_pos.x - self.font_disp.x) as f32 / self.font_disp.w as f32) * ch_pixels) as i32;
+                let y = (((mouse_pos.y - self.font_disp.y) as f32 / self.font_disp.h as f32) * ch_pixels) as i32;
                 let pos = Point2::from([self.font_disp.x + x as f32 * ch_width - 1.0,
                                         self.font_disp.y + y as f32 * ch_height - 1.0]);
                 hightlight_square(ctx, pos, ch_width, ch_height, highlight_color)?;
@@ -299,10 +302,10 @@ impl EventHandler for MainState {
                     let ch = std::char::from_u32(cell.ch).unwrap();
 
                     let src_rect =
-                        Rect::new((cell.ch % 16) as f32 / 16.0,
-                                  (cell.ch / 16) as f32 / 16.0,
-                                  1.0 / 16.0,
-                                  1.0 / 16.0);
+                        Rect::new((cell.ch % 16) as f32 / ch_pixels,
+                                  (cell.ch / 16) as f32 / ch_pixels,
+                                  1.0 / ch_pixels,
+                                  1.0 / ch_pixels);
 
                     let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
 
@@ -310,7 +313,7 @@ impl EventHandler for MainState {
                         DrawParam::default().color(WHITE)
                                             .dest(pos)
                                             .src(src_rect)
-                                            .scale([self.map_scaler / 16.0, self.map_scaler / 16.0]);
+                                            .scale([self.map_scaler / ch_pixels, self.map_scaler / ch_pixels]);
 
                     ggez::graphics::draw(ctx, &self.font_image, params)?;
                 }
@@ -325,8 +328,7 @@ impl EventHandler for MainState {
                         for y in 0..layer.height {
                             let cell = layer.cells[y * layer.width + x];
                             let ch = std::char::from_u32(cell.ch).unwrap();
-                            let pos = Point2::from([self.map_disp.x + x as f32 * ch_width,
-                                                    self.map_disp.y + y as f32 * ch_height]);
+                            let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
                             if ch == font_info.ch {
                                 hightlight_square(ctx, pos, self.map_scaler, self.map_scaler, highlight_color)?;
                             }
@@ -334,8 +336,8 @@ impl EventHandler for MainState {
                     }
                 }
 
-                let ch_width = self.font_disp.w as f32 / 16.0;
-                let ch_height = self.font_disp.h as f32 / 16.0;
+                let ch_width = self.font_disp.w as f32 / ch_pixels;
+                let ch_height = self.font_disp.h as f32 / ch_pixels;
                 let x = font_info.ch as usize % 16;
                 let y = font_info.ch as usize / 16;
                 let pos = Point2::from([self.font_disp.x + x as f32 * ch_width - 1.0,
@@ -351,18 +353,20 @@ impl EventHandler for MainState {
             if let Some(font_info) = self.info.font_info {
                 let ch = font_info.ch as usize;
                 let src_rect =
-                    Rect::new((ch % 16) as f32 / 16.0,
-                              (ch / 16) as f32 / 16.0,
-                              1.0 / 16.0,
-                              1.0 / 16.0);
+                    Rect::new((ch % 16) as f32 / ch_pixels,
+                              (ch / 16) as f32 / ch_pixels,
+                              1.0 / ch_pixels,
+                              1.0 / ch_pixels);
 
-                let pos = Point2::from([self.char_disp.x, self.char_disp.y]);
+                let scale = ch_pixels / 2.0;
+                let pos = Point2::from([self.char_disp.x + (self.char_disp.w / 2.0) - (ch_pixels * scale / 2.0),
+                                        self.char_disp.y + (self.char_disp.h / 2.0) - (ch_pixels * scale / 2.0)]);
 
                 let params =
                     DrawParam::default().color(WHITE)
                                         .dest(pos)
                                         .src(src_rect)
-                                        .scale([self.char_disp.w / 16.0, self.char_disp.h / 16.0]);
+                                        .scale([scale, scale]);
 
                 ggez::graphics::draw(ctx, &self.font_image, params)?;
             }

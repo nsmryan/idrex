@@ -24,7 +24,7 @@ pub fn main() -> ggez::GameResult {
     let cb = cb.window_setup(WindowSetup::default().title("REXPaint Image Viewer"));
     let (ref mut ctx, event_loop) = &mut cb.build()?;
 
-    let file = File::open("map.xp").expect("Could not open xp file");
+    let file = File::open("./resources/map.xp").expect("Could not open xp file");
     let mut buf_reader = BufReader::new(file);
 
     let tile_image = XpFile::read(&mut buf_reader).expect("Could not read xp file");
