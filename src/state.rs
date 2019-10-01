@@ -124,8 +124,8 @@ impl MainState {
 }
 
 pub fn map_pos_to_screen(map_disp: Rect, x: usize, y: usize, map_scaler: f32) -> Point2<f32> {
-    let pos = Point2::from([map_disp.y + y as f32 * map_scaler,
-                            map_disp.x + x as f32 * map_scaler]);
+    let pos = Point2::from([map_disp.x + x as f32 * map_scaler,
+                            map_disp.y + y as f32 * map_scaler]);
 
     return pos;
 }
@@ -229,11 +229,15 @@ impl EventHandler for MainState {
             let cell_iter = layer.cells.iter()
                                  .enumerate()
                                  .map(|(index, cell)|
-                                        (index % layer.width,
-                                         index / layer.width,
+                                        (index / layer.height,
+                                         index % layer.height,
                                          std::char::from_u32(cell.ch).unwrap())
                                       );
             for (x, y, ch) in cell_iter {
+                if ch == ' ' {
+                    continue;
+                }
+
                 let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
 
                 if (mouse_pos.x >= pos.x && mouse_pos.x < (pos.x + self.map_scaler)) &&
@@ -250,7 +254,7 @@ impl EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        let background = BLACK; // ggez::graphics::Color::new(255.0 / 255.0, 140.0 / 255.0, 0.0, 1.0);
+        let background = BLACK;
         let highlight_color = Color::new(255.0 / 256.0, 140.0 / 256.0, 0.0, 1.0);
 
         ggez::graphics::clear(ctx, background);
@@ -281,38 +285,39 @@ impl EventHandler for MainState {
 
         // draw map display
         {
-            // Render game stuff
             for layer in self.tile_image.layers.iter() {
                 let tile_iter =
                     layer.cells.iter().enumerate().map(
-                        |(index, cell)| (index % layer.width, index / layer.width, cell)
+                        |(index, cell)| (index / layer.height, index % layer.height, cell)
                      );
 
                 for (x, y, cell) in tile_iter {
-                    let src_rect =
-                        Rect::new((cell.ch % 16) as f32 / ch_pixels,
-                                  (cell.ch / 16) as f32 / ch_pixels,
-                                  1.0 / ch_pixels,
-                                  1.0 / ch_pixels);
+                    if cell.ch != ' ' as u32 {
+                        let src_rect =
+                            Rect::new((cell.ch % 16) as f32 / ch_pixels,
+                                      (cell.ch / 16) as f32 / ch_pixels,
+                                      1.0 / ch_pixels,
+                                      1.0 / ch_pixels);
 
-                    let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
+                        let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
 
-                    let params =
-                        DrawParam::default().color(WHITE)
-                                            .dest(pos)
-                                            .src(src_rect)
-                                            .scale([self.map_scaler / ch_pixels, self.map_scaler / ch_pixels]);
+                        let params =
+                            DrawParam::default().color(WHITE)
+                                                .dest(pos)
+                                                .src(src_rect)
+                                                .scale([self.map_scaler / ch_pixels, self.map_scaler / ch_pixels]);
 
-                    ggez::graphics::draw(ctx, &self.font_image, params)?;
+                        ggez::graphics::draw(ctx, &self.font_image, params)?;
+                    }
                 }
             }
 
             // Draw highlight on font square
             if let Some(font_info) = self.info.font_info {
-                for layer in self.tile_image.layers.iter() {
+                for layer in self.tile_image.layers.iter().skip(1) {
                     for x in 0..layer.width {
                         for y in 0..layer.height {
-                            let cell = layer.cells[y * layer.width + x];
+                            let cell = layer.cells[y + layer.height * x];
                             let ch = std::char::from_u32(cell.ch).unwrap();
                             let pos = map_pos_to_screen(self.map_disp, x, y, self.map_scaler);
                             if ch == font_info.ch {
@@ -334,8 +339,6 @@ impl EventHandler for MainState {
 
         // draw character display
         {
-            // TODO display character in font or map
-            // TODO display index in decimal and hex, and the ascii character if any
             if let Some(font_info) = self.info.font_info {
                 let ch = font_info.ch as usize;
                 let src_rect =
@@ -358,7 +361,7 @@ impl EventHandler for MainState {
             }
         }
 
-        // Render game ui
+        // draw imgui ui
         {
             self.gui.render(ctx, &mut self.params, &self.info);
         }
