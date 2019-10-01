@@ -245,7 +245,7 @@ impl EventHandler for MainState {
                     self.info.map_info =
                         Some(MapInfo::new(ch, x, y));
 
-                    self.info.font_info = Some(FontInfo::new(x as i32, y as i32, ch));
+                    self.info.font_info = Some(FontInfo::new(ch as i32 % 16, ch as i32 / 16, ch));
                 }
             }
         }
